@@ -2,17 +2,16 @@ import torch
 import torch.nn as nn
 
 class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels = 3, patch_size = 16, embedding_dim = 768, image_size =224):
+    def __init__(self, in_channels, patch_size, embedding_dim, image_size):
         super().__init__()
 
-        self.patch_size = patch_size
-        self.patcher = nn.Conv2d(in_channels=in_channels, out_channels=embedding_dim, kernel_size=self.patch_size, padding=0, stride=self.patch_size)
+        self.patcher = nn.Conv2d(in_channels=in_channels, out_channels=embedding_dim, kernel_size=patch_size, padding=0, stride=patch_size)
 
         # Class token
         self.cls = nn.Parameter(torch.randn(1, 1, embedding_dim), requires_grad=True)
 
         # Positional embedding
-        self.num_patches = (image_size * image_size) // patch_size ** 2
+        self.num_patches = image_size**2 // patch_size**2
         self.positional_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, embedding_dim))
 
         # Only flatten the feature map dimensions
@@ -44,14 +43,12 @@ class ViT(nn.Module):
         
         super().__init__()
 
-
         assert img_size % patch_size == 0, "Image size must be divisible by patch size"
 
         self.patch_embedding = PatchEmbedding(in_channels=num_channels, 
                                               patch_size=patch_size,
                                               embedding_dim=embedding_dim,
                                               image_size=img_size)
-
 
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=embedding_dim, 
                                                         nhead=n_heads, 
@@ -61,12 +58,7 @@ class ViT(nn.Module):
                                                         batch_first=True, 
                                                         norm_first=True)
 
-
-
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=n_transformer_layers)
-
-
-
 
         self.mlp_head = nn.Sequential(nn.LayerNorm(normalized_shape=embedding_dim),
                                       nn.Linear(in_features=embedding_dim,
