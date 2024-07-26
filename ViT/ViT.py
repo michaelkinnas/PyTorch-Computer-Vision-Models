@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels, patch_size, embedding_dim, image_size):
+class ConvPatchEmbedding(nn.Module):
+    def __init__(self, image_size, in_channels, patch_size, embedding_dim):
         super().__init__()
 
         self.patcher = nn.Conv2d(in_channels=in_channels, out_channels=embedding_dim, kernel_size=patch_size, padding=0, stride=patch_size)
@@ -12,7 +12,7 @@ class PatchEmbedding(nn.Module):
 
         # Positional embedding
         self.num_patches = image_size**2 // patch_size**2
-        self.positional_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, embedding_dim))
+        self.positional_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, embedding_dim), requires_grad=True)
 
         # Only flatten the feature map dimensions
         self.flatten = nn.Flatten(start_dim=2, end_dim=3)
@@ -22,7 +22,7 @@ class PatchEmbedding(nn.Module):
         x = self.flatten(x)
 
         # Prepend cls token
-        class_token = self.cls.expand(x.shape[0], -1, -1) # Expand the cls token across the batch size (needs the same class for all patch embeddings belonging to the same image)  
+        class_token = self.cls.expand(x.shape[0], -1, -1) # Expand the cls token across the batch size  
         x = x.permute(0, 2, 1)        
         x = torch.cat((class_token, x), dim=1)
         x = self.positional_embedding + x
@@ -45,20 +45,19 @@ class ViT(nn.Module):
 
         assert img_size % patch_size == 0, "Image size must be divisible by patch size"
 
-        self.patch_embedding = PatchEmbedding(in_channels=num_channels, 
+        self.patch_embedding = ConvPatchEmbedding(in_channels=num_channels, 
                                               patch_size=patch_size,
                                               embedding_dim=embedding_dim,
                                               image_size=img_size)
 
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=embedding_dim, 
-                                                        nhead=n_heads, 
-                                                        dim_feedforward=mlp_size, 
-                                                        dropout=dropout, 
-                                                        activation="gelu", 
-                                                        batch_first=True, 
-                                                        norm_first=True)
-
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=n_transformer_layers)
+        self.transformer_encoder = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model=embedding_dim, 
+                                                                                    nhead=n_heads, 
+                                                                                    dim_feedforward=mlp_size, 
+                                                                                    dropout=dropout, 
+                                                                                    activation="gelu", 
+                                                                                    batch_first=True, 
+                                                                                    norm_first=True), 
+                                                num_layers=n_transformer_layers)
 
         self.mlp_head = nn.Sequential(nn.LayerNorm(normalized_shape=embedding_dim),
                                       nn.Linear(in_features=embedding_dim,
@@ -67,19 +66,14 @@ class ViT(nn.Module):
         self.dropout = nn.Dropout(dropout)
     
     def forward(self, x):
-
         # Create patch embeddings
         x = self.patch_embedding(x)
-
         # Dropout
         x = self.dropout(x)
-
         # Pass through transformer
         x = self.transformer_encoder(x)
-
         #Pass 0th index of x (the class token) throught the feed forward network
         x = self.mlp_head(x[:, 0])
-
         return x
 
         
