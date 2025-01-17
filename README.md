@@ -8,4 +8,4 @@ A collection of various implementations of computer vision neural network models
 
 - ### Convolutional Neural Networks
   - <b>VGG16</b> - A 16 layer VGG as described in "Very Deep Convolutional Networks for Large-Scale Image Recognition" paper: https://arxiv.org/abs/1409.1556
-  - <b>VGG34</b> - A 34 layer ResNet as described in "Deep Residual Learning for Image Recognition" paper: https://arxiv.org/abs/1512.03385
+  - <b>ResNet</b> - 18, 34, 50, 101 and 152 layer ResNets as described in "Deep Residual Learning for Image Recognition" paper: https://arxiv.org/abs/1512.03385
