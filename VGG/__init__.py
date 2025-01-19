@@ -1,0 +1,1 @@
+from .vgg import VGG11A, VGG13B, VGG16C, VGG16D, VGG19E

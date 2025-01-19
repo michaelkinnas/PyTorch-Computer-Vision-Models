@@ -1,60 +1,40 @@
-# import torch
 import torch.nn as nn
 
-class Conv3Block(nn.Module):
-    def __init__(self, in_channels, out_channels):
+
+
+
+class _Block(nn.Module):
+    def __init__(self, config, batch_norm):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, padding=1)
 
-        self.relu = nn.ReLU(inplace=False)
+        self.seq = nn.Sequential()
 
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        for inc, outc, ks, st, pad in config:
+            self.seq.append(nn.Conv2d(in_channels=inc, out_channels=outc, kernel_size=ks, stride=st, padding=pad))
+            self.seq.append(nn.ReLU(inplace=False))
+            
+        self.seq.append(nn.MaxPool2d(kernel_size=2, stride=2))
 
+        if batch_norm:
+            self.seq.append(nn.BatchNorm2d(num_features=config[-1][1]))
+    
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.pool(x)
-        return x
-        
+        return self.seq(x)
 
-class Conv4Block(nn.Module):
-    def __init__(self, in_channels, out_channels):
+
+# Minimum image size 32
+class _Net(nn.Module):
+    def __init__(self, config, dropout=0.5, batch_norm = False, out_classes=1000, image_size=224):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, padding=1)
 
-        self.relu = nn.ReLU(inplace=False)
-
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2,  padding=0)        
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.conv3(x)
-        x = self.relu(x)
-        x = self.pool(x)
-        return x
-
-
-class VGG16(nn.Module):
-    def __init__(self, in_channels=3, dropout=0.5, output_classes = 10, image_size=224):
-        super().__init__()
-        self.block_3_1 = Conv3Block(in_channels=in_channels, out_channels = 64)
-        self.block_3_2 = Conv3Block(in_channels=64, out_channels=128)
-
-        self.block_4_1 = Conv3Block(in_channels=128, out_channels=256)
-        self.block_4_2 = Conv4Block(in_channels=256, out_channels=512)
-        self.block_4_3 = Conv4Block(in_channels=512, out_channels=512) #This also outputs 512 channels
-
-        hidden_layer_size = self.__calculate_hidden_layer_size(image_size=image_size)
+        hidden_layer_size = image_size ** 2 * config[-1][-1][1] / 4 ** 5
         assert hidden_layer_size >= 1, "Image size is too small for this network depth"
 
+        self.seq = nn.Sequential()
+
+        for layer in config:
+            self.seq.append(_Block(config=layer, batch_norm=batch_norm))
+        
         self.fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(in_features=int(hidden_layer_size), out_features=4096),
@@ -63,21 +43,33 @@ class VGG16(nn.Module):
             nn.Linear(in_features=4096, out_features=4096),
             nn.ReLU(inplace=True),
             nn.Dropout(p=dropout, inplace=False),
-            nn.Linear(in_features=4096, out_features=output_classes)
+            nn.Linear(in_features=4096, out_features=out_classes)
         )
 
-        self.sf = nn.Softmax(dim=1)
-
+    
     def forward(self, x):
-        x = self.block_3_1(x) #16
-        x = self.block_3_2(x) # 8
-        x = self.block_4_1(x) # 4
-        x = self.block_4_2(x) # 2
-        x = self.block_4_3(x) # 1
+        x = self.seq(x)
         x = self.fc(x)
-        # x = self.sf(x) #TODO Test if this is usually used from inside the model
         return x
 
-    def __calculate_hidden_layer_size(self, image_size):
-        return image_size ** 2 * 512 / 4 ** 5
 
+
+def VGG11A(out_classes=1000, image_size=224, batch_norm = False):
+    from .configs import vgg11A
+    return _Net(config=vgg11A, out_classes=out_classes, image_size=image_size, batch_norm=batch_norm)
+
+def VGG13B(out_classes=1000, image_size=224, batch_norm = False):
+    from .configs import vgg13B
+    return _Net(config=vgg13B, out_classes=out_classes, image_size=image_size, batch_norm=batch_norm)
+
+def VGG16C(out_classes=1000, image_size=224, batch_norm = False):
+    from .configs import vgg16C
+    return _Net(config=vgg16C, out_classes=out_classes, image_size=image_size, batch_norm=batch_norm)
+
+def VGG16D(out_classes=1000, image_size=224, batch_norm = False):
+    from .configs import vgg16D
+    return _Net(config=vgg16D, out_classes=out_classes, image_size=image_size, batch_norm=batch_norm)
+
+def VGG19E(out_classes=1000, image_size=224, batch_norm = False):
+    from .configs import vgg19E
+    return _Net(config=vgg19E, out_classes=out_classes, image_size=image_size, batch_norm=batch_norm)
