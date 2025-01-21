@@ -46,7 +46,7 @@ class _Net(nn.Module):
     
     def forward(self, x):
         x = self.seq(x)
-        print(x.shape)
+        # print(x.shape)
         x = self.fc(x)
         return x
 
