@@ -58,32 +58,36 @@ class _Net(nn.Module):
     def __init__(self, config, in_channels, out_classes):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(in_channels=in_channels, 
+        self.input_seq = nn.Sequential(nn.Conv2d(in_channels=in_channels, 
                                out_channels=64, 
                                kernel_size=7, 
                                stride=2, 
-                               padding=2)
-        
-        self.maxpool = nn.MaxPool2d(kernel_size=3, 
-                                    stride=2, 
-                                    padding=1)
+                               padding=3),
+
+                            nn.BatchNorm2d(num_features=64),
+                            nn.ReLU(inplace=True),
+                            nn.MaxPool2d(kernel_size = 3, stride=2, padding=1)
+                               
+                               )
 
         self.seq = nn.Sequential()
         for layer in config:
             self.seq.append(_Layer(config=layer))
     
-        self.avgpool = nn.AvgPool2d(kernel_size=7, 
-                                    stride=1)
+        # self.avgpool = nn.AvgPool2d(kernel_size=7, 
+        #                             stride=1)
+        
+        self.avgpool = nn.AdaptiveAvgPool2d(output_size=(1, 1))
 
         self.flatten = nn.Flatten()
         self.fc = nn.Linear(in_features=config[-1][-1][-1][1], 
                             out_features=out_classes)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.maxpool(x)
+        x = self.input_seq(x)
         x = self.seq(x)
         x = self.avgpool(x)
+        # print(x.shape)
         x = self.flatten(x)
         x = self.fc(x)
         return x
